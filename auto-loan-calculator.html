@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto Loan Calculator — Free Monthly Payment Estimate | Ledger</title>
+<meta name="description" content="Free auto loan calculator. See your exact monthly car payment and total interest before you visit the dealership.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="tool-page">
+
+<div class="wrap nav">
+  <a href="index.html" class="brand"><span class="mark"></span>Ledger</a>
+  <ul>
+    <li><a href="mortgage-calculator.html">Mortgage</a></li>
+    <li><a href="auto-loan-calculator.html">Auto loan</a></li>
+    <li><a href="refinance-calculator.html">Refinance</a></li>
+    <li><a href="personal-loan-calculator.html">Personal loan</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul>
+</div>
+
+<section class="hero">
+  <div class="wrap" style="display:block;">
+    <span class="eyebrow">Auto loan calculator</span>
+    <h1>What will your car payment really be?</h1>
+    <p class="lead">Enter the price, down payment, rate, and term — see your monthly payment before you negotiate at the dealership.</p>
+  </div>
+</section>
+
+<div class="wrap tool-grid">
+  <div class="panel">
+    <div class="field">
+      <label for="amount">Car price ($)</label>
+      <input type="number" id="amount" value="32000" step="500">
+    </div>
+    <div class="field">
+      <label for="down">Down payment / trade-in ($)</label>
+      <input type="number" id="down" value="4000" step="500">
+    </div>
+    <div class="field">
+      <label for="rate">Interest rate (% APR)</label>
+      <input type="number" id="rate" value="7.2" step="0.1">
+    </div>
+    <div class="field">
+      <label for="years">Loan term (years)</label>
+      <input type="number" id="years" value="5" step="1">
+    </div>
+  </div>
+
+  <div class="receipt">
+    <p class="rtitle">Your estimate</p>
+    <div class="rline"><span>Loan amount</span><span id="out-principal">$0</span></div>
+    <div class="rline"><span>Total interest</span><span id="out-interest">$0</span></div>
+    <div class="rline"><span>Total paid</span><span id="out-total">$0</span></div>
+    <div class="rline total"><span>Monthly payment</span><span id="out-monthly">$0</span></div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="section-head" style="margin-bottom:24px;">
+      <span class="eyebrow">Amortization</span>
+      <h2>How your balance drops over the loan</h2>
+    </div>
+    <div class="panel" style="position:relative; height:280px;">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+</section>
+
+<article class="article" style="max-width:820px; padding-top:0;">
+  <h2>Tips before you sign</h2>
+  <ul>
+    <li>Dealers often quote a monthly payment, not the price or rate — always ask for both separately</li>
+    <li>Shorter terms (3-4 years) mean higher payments but far less total interest</li>
+    <li>Get pre-approved by a bank or credit union first, so you can compare it against the dealer's offer</li>
+  </ul>
+  <p>This estimate doesn't include sales tax, registration, or add-ons like extended warranties — ask your dealer for the full out-the-door price.</p>
+</article>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a href="index.html" class="brand" style="color:var(--text-on-ink); margin-bottom:14px; display:flex;"><span class="mark"></span>Ledger</a>
+      <p style="max-width:32ch; font-size:13px; color:#6E7A8E;">Free calculators for people who want to see the real numbers before they sign anything.</p>
+    </div>
+    <ul>
+      <li><a href="about.html">About</a></li>
+      <li><a href="privacy.html">Privacy</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+  </div>
+  <p class="fine">Estimates only. Not financial advice. Confirm final terms with your lender.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const fmt = n => '$' + Math.round(n).toLocaleString();
+const els = ['amount','down','rate','years'].reduce((o,id)=>(o[id]=document.getElementById(id),o),{});
+let chart;
+function calc(){
+  const principal = Math.max(0, (+els.amount.value||0) - (+els.down.value||0));
+  const annualRate = +els.rate.value || 0;
+  const years = Math.max(1, +els.years.value || 1);
+  const n = years * 12;
+  const r = annualRate/100/12;
+  const monthly = r===0 ? principal/n : principal*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+  const totalPaid = monthly*n;
+  const totalInterest = totalPaid - principal;
+  document.getElementById('out-principal').textContent = fmt(principal);
+  document.getElementById('out-interest').textContent = fmt(totalInterest);
+  document.getElementById('out-total').textContent = fmt(totalPaid);
+  document.getElementById('out-monthly').textContent = fmt(monthly);
+  let balance = principal;
+  const labels=[], balances=[];
+  for(let y=0;y<=years;y++){
+    labels.push('Yr '+y);
+    balances.push(Math.max(0,Math.round(balance)));
+    for(let m=0;m<12 && balance>0;m++){
+      const interestPortion = balance*r;
+      balance -= (monthly - interestPortion);
+    }
+  }
+  const ctx = document.getElementById('chart').getContext('2d');
+  if(chart) chart.destroy();
+  chart = new Chart(ctx,{
+    type:'line',
+    data:{labels, datasets:[{label:'Remaining balance', data:balances, borderColor:'#D9A441', backgroundColor:'rgba(217,164,65,0.12)', fill:true, tension:.2, pointRadius:0, borderWidth:2}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{maxTicksLimit:8, font:{size:11}}, grid:{display:false}}, y:{ticks:{callback:v=>'$'+(v/1000)+'k', font:{size:11}}, grid:{color:'#E4E0D6'}}}}
+  });
+}
+Object.values(els).forEach(el=>el.addEventListener('input', calc));
+calc();
+</script>
+</body>
+</html>
