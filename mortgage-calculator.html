@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mortgage Calculator — Free Monthly Payment & Amortization | Ledger</title>
+<meta name="description" content="Free mortgage calculator. Get your exact monthly payment, total interest, and a full year-by-year amortization schedule instantly.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body class="tool-page">
+
+<div class="wrap nav">
+  <a href="index.html" class="brand"><span class="mark"></span>Ledger</a>
+  <ul>
+    <li><a href="mortgage-calculator.html">Mortgage</a></li>
+    <li><a href="auto-loan-calculator.html">Auto loan</a></li>
+    <li><a href="refinance-calculator.html">Refinance</a></li>
+    <li><a href="personal-loan-calculator.html">Personal loan</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul>
+</div>
+
+<section class="hero">
+  <div class="wrap" style="display:block;">
+    <span class="eyebrow">Mortgage calculator</span>
+    <h1>What will your mortgage actually cost you?</h1>
+    <p class="lead">Enter your numbers below — the payment, total interest, and full schedule update instantly as you type.</p>
+  </div>
+</section>
+
+<div class="wrap tool-grid">
+  <div class="panel">
+    <div class="field">
+      <label for="amount">Home price ($)</label>
+      <input type="number" id="amount" value="360000" step="1000">
+    </div>
+    <div class="field">
+      <label for="down">Down payment ($)</label>
+      <input type="number" id="down" value="60000" step="1000">
+    </div>
+    <div class="field">
+      <label for="rate">Interest rate (% APR)</label>
+      <input type="number" id="rate" value="6.5" step="0.05">
+    </div>
+    <div class="field">
+      <label for="years">Loan term (years)</label>
+      <input type="number" id="years" value="30" step="1">
+    </div>
+  </div>
+
+  <div class="receipt">
+    <p class="rtitle">Your estimate</p>
+    <div class="rline"><span>Loan amount</span><span id="out-principal">$0</span></div>
+    <div class="rline"><span>Total interest</span><span id="out-interest">$0</span></div>
+    <div class="rline"><span>Total paid</span><span id="out-total">$0</span></div>
+    <div class="rline total"><span>Monthly payment</span><span id="out-monthly">$0</span></div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="section-head" style="margin-bottom:24px;">
+      <span class="eyebrow">Amortization</span>
+      <h2>Where your balance goes over time</h2>
+    </div>
+    <div class="panel" style="position:relative; height:280px;">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+</section>
+
+<article class="article" style="max-width:820px; padding-top:0;">
+  <h2>How this calculator works</h2>
+  <p>This tool uses the standard amortization formula lenders use to calculate a fixed-rate mortgage payment. It splits your loan amount (home price minus down payment) across your chosen term, applying your interest rate monthly.</p>
+  <p>Early in the loan, most of each payment goes toward interest. Later, more goes toward the principal balance — that shift is what the chart above shows.</p>
+  <h2>What this doesn't include</h2>
+  <ul>
+    <li>Property taxes and homeowners insurance, which most lenders add to your monthly bill</li>
+    <li>Private mortgage insurance (PMI) if your down payment is under 20%</li>
+    <li>HOA fees, if applicable</li>
+  </ul>
+  <p>Treat this as your baseline loan payment — your actual monthly bill from a lender will typically be somewhat higher once taxes and insurance are included.</p>
+</article>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <a href="index.html" class="brand" style="color:var(--text-on-ink); margin-bottom:14px; display:flex;"><span class="mark"></span>Ledger</a>
+      <p style="max-width:32ch; font-size:13px; color:#6E7A8E;">Free calculators for people who want to see the real numbers before they sign anything.</p>
+    </div>
+    <ul>
+      <li><a href="about.html">About</a></li>
+      <li><a href="privacy.html">Privacy</a></li>
+      <li><a href="contact.html">Contact</a></li>
+    </ul>
+  </div>
+  <p class="fine">Estimates only. Not financial advice. Confirm final terms with your lender.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const fmt = n => '$' + Math.round(n).toLocaleString();
+const els = ['amount','down','rate','years'].reduce((o,id)=>(o[id]=document.getElementById(id),o),{});
+let chart;
+
+function calc(){
+  const principal = Math.max(0, (+els.amount.value||0) - (+els.down.value||0));
+  const annualRate = +els.rate.value || 0;
+  const years = Math.max(1, +els.years.value || 1);
+  const n = years * 12;
+  const r = annualRate/100/12;
+  const monthly = r===0 ? principal/n : principal*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+  const totalPaid = monthly*n;
+  const totalInterest = totalPaid - principal;
+
+  document.getElementById('out-principal').textContent = fmt(principal);
+  document.getElementById('out-interest').textContent = fmt(totalInterest);
+  document.getElementById('out-total').textContent = fmt(totalPaid);
+  document.getElementById('out-monthly').textContent = fmt(monthly);
+
+  let balance = principal;
+  const labels=[], balances=[];
+  for(let y=0;y<=years;y++){
+    labels.push('Yr '+y);
+    balances.push(Math.max(0,Math.round(balance)));
+    for(let m=0;m<12 && balance>0;m++){
+      const interestPortion = balance*r;
+      balance -= (monthly - interestPortion);
+    }
+  }
+
+  const ctx = document.getElementById('chart').getContext('2d');
+  if(chart) chart.destroy();
+  chart = new Chart(ctx,{
+    type:'line',
+    data:{labels, datasets:[{
+      label:'Remaining balance', data:balances,
+      borderColor:'#D9A441', backgroundColor:'rgba(217,164,65,0.12)',
+      fill:true, tension:.2, pointRadius:0, borderWidth:2
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{maxTicksLimit:8, font:{size:11}}, grid:{display:false}},
+        y:{ticks:{callback:v=>'$'+(v/1000)+'k', font:{size:11}}, grid:{color:'#E4E0D6'}}
+      }
+    }
+  });
+}
+Object.values(els).forEach(el=>el.addEventListener('input', calc));
+calc();
+</script>
+</body>
+</html>
